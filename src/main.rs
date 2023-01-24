@@ -137,8 +137,8 @@ async fn run_requests(
 
     let cookies = get_firefox_cookies(firefox_cookies);
 
-    search_with_user_agent(&firefox_path, &cookies, edge_agent, 1).await?; // 40
-    search_with_user_agent(&firefox_path, &cookies, android_agent, 1).await?; // 25
+    search_with_user_agent(&firefox_path, &cookies, edge_agent, 40).await?; // 40
+    search_with_user_agent(&firefox_path, &cookies, android_agent, 25).await?; // 25
 
     Ok(())
 }
