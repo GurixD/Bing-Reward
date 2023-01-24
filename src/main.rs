@@ -16,7 +16,6 @@ use thirtyfour::{
     common::capabilities::firefox::FirefoxPreferences, cookie::time::OffsetDateTime, prelude::*,
     support::sleep,
 };
-use winapi::um::winbase;
 
 struct GeckoDriver {
     child: Child,
@@ -25,10 +24,7 @@ struct GeckoDriver {
 impl GeckoDriver {
     fn start(gecko_driver: String) -> GeckoDriver {
         let mut command = Command::new(gecko_driver);
-        let child = command
-            .creation_flags(winbase::DETACHED_PROCESS)
-            .spawn()
-            .expect("Failed to start driver");
+        let child = command.spawn().expect("Failed to start driver");
 
         GeckoDriver { child }
     }

@@ -133,7 +133,6 @@ dependencies = [
  "sqlite",
  "thirtyfour",
  "tokio",
- "winapi",
 ]
 
 [[package]]
