@@ -6,7 +6,6 @@ use sqlite::State;
 use std::{
     fs::{self, File},
     io::{ErrorKind, Read, Seek, Write},
-    os::windows::process::CommandExt,
     path::Path,
     process::{Child, Command},
     str,
