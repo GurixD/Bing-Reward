@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use chrono::{Days, NaiveDate, Utc};
 use clap::Parser;
 use notify_rust::Notification;
