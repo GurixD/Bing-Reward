@@ -4,18 +4,18 @@ use chrono::{Days, NaiveDate, Utc};
 use clap::Parser;
 use notify_rust::Notification;
 use rand::distributions::{Alphanumeric, DistString};
-use reqwest::{cookie::Jar, Client, Url};
+use reqwest::{blocking::Client, cookie::Jar, Url};
 use sqlite::{State, Statement};
 use std::{
     error::Error,
     fs::{self, File},
-    io::{ErrorKind, Read, Seek, Write},
+    io::{self, ErrorKind, Read, Seek, Write},
     path::Path,
     str,
     sync::Arc,
+    thread::sleep,
     time::Duration,
 };
-use tokio::time::sleep;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)] // Read from `Cargo.toml`
@@ -88,7 +88,7 @@ fn main() {
                 .expect("Failed to write");
         }
         Err(e) => {
-            let error = format!("Bing reward failed: {}", e.to_string());
+            let error = format!("Bing reward failed: {}", e);
 
             Notification::new()
                 .summary("Reward bing")
@@ -99,23 +99,25 @@ fn main() {
     };
 }
 
-#[tokio::main(flavor = "current_thread")]
-async fn run_requests(firefox_cookies: String) -> Result<(), Box<dyn Error>> {
-    let edge_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.140 Safari/537.36 Edge/18.17763".to_owned();
+fn run_requests(firefox_cookies: String) -> Result<(), Box<dyn Error>> {
+    let edge_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.48".to_owned();
+
     let android_agent =
         "Mozilla/5.0 (Android 11; Mobile; rv:83.0) Gecko/83.0 Firefox/83.0".to_owned();
 
     let cookies = get_firefox_cookies(firefox_cookies)?;
 
-    search_with_user_agent(&cookies, &edge_agent, 40).await?; // 40
-    search_with_user_agent(&cookies, &android_agent, 25).await?; // 25
+    // println!("cookies: {cookies}");
+
+    search_with_user_agent(&cookies, &edge_agent, 40)?; // 40
+    search_with_user_agent(&cookies, &android_agent, 25)?; // 25
 
     Ok(())
 }
 
-async fn search_with_user_agent(
-    cookies: &String,
-    user_agent: &String,
+fn search_with_user_agent(
+    cookies: &str,
+    user_agent: &str,
     request_number: i32,
 ) -> Result<(), Box<dyn Error>> {
     let cookie_store = Jar::default();
@@ -130,31 +132,37 @@ async fn search_with_user_agent(
         .build()?;
 
     for _ in 0..request_number {
-        sleep(Duration::from_secs(1)).await;
+        sleep(Duration::from_secs(1));
         let mut random_url = "https://bing.com/search?q=".to_owned();
         random_url.push_str(&Alphanumeric.sample_string(&mut rand::thread_rng(), 16));
+        // println!("{random_url}");
 
-        let _response = client.get(random_url).send().await?;
+        let _response = client.get(random_url).send()?;
+        // println!("{}", _response.text()?)
     }
 
     Ok(())
 }
 
-fn get_firefox_cookies(cookie_file: String) -> Result<std::string::String, sqlite::Error> {
+fn get_firefox_cookies(cookie_file: String) -> Result<String, Box<dyn Error>> {
     let connection = sqlite::open(cookie_file).expect("db Connection failed");
 
     let query =
         "SELECT * FROM moz_cookies WHERE (host = '.bing.com' OR host = 'www.bing.com') AND value != '' AND originAttributes = '' GROUP BY name;";
     let mut statement = connection.prepare(query).unwrap();
 
-    let mut cookies = Vec::new();
     while let Ok(State::Row) = statement.next() {
         let pair = retrieve_value(&mut statement)?;
 
-        cookies.push(pair);
+        if pair.starts_with("KievRPSSecAuth") {
+            return Ok(pair);
+        }
     }
 
-    Ok(cookies.join("; "))
+    Err(Box::new(io::Error::new(
+        ErrorKind::InvalidData,
+        "Could not find connection cookie",
+    )))
 }
 
 fn retrieve_value(statement: &mut Statement) -> Result<std::string::String, sqlite::Error> {
