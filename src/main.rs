@@ -9,7 +9,7 @@ use sqlite::{State, Statement};
 use std::{
     error::Error,
     fs::{self, File},
-    io::{self, ErrorKind, Read, Seek, Write},
+    io::{ErrorKind, Read, Seek, Write},
     path::Path,
     str,
     sync::Arc,
@@ -101,7 +101,7 @@ fn main() {
 
 fn run_requests(firefox_cookies: String) -> Result<(), Box<dyn Error>> {
     let edge_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.48".to_owned();
-
+    
     let android_agent =
         "Mozilla/5.0 (Android 11; Mobile; rv:83.0) Gecko/83.0 Firefox/83.0".to_owned();
 
@@ -116,13 +116,18 @@ fn run_requests(firefox_cookies: String) -> Result<(), Box<dyn Error>> {
 }
 
 fn search_with_user_agent(
-    cookies: &str,
+    cookies: &Vec<String>,
     user_agent: &str,
     request_number: i32,
 ) -> Result<(), Box<dyn Error>> {
     let cookie_store = Jar::default();
     let url = "https://www.bing.com".parse::<Url>().unwrap();
-    cookie_store.add_cookie_str(cookies, &url);
+
+    for cookie in cookies {
+        cookie_store.add_cookie_str(cookie, &url);
+    }
+
+    // println!("{cookie_store:?}");
 
     let cookie_store = Arc::new(cookie_store);
 
@@ -137,36 +142,40 @@ fn search_with_user_agent(
         random_url.push_str(&Alphanumeric.sample_string(&mut rand::thread_rng(), 16));
         // println!("{random_url}");
 
-        let _response = client.get(random_url).send()?;
+        let get = client.get(random_url);
+        let _response = get.send()?;
+
         // println!("{}", _response.text()?)
     }
 
     Ok(())
 }
 
-fn get_firefox_cookies(cookie_file: String) -> Result<String, Box<dyn Error>> {
+fn get_firefox_cookies(cookie_file: String) -> Result<Vec<String>, Box<dyn Error>> {
     let connection = sqlite::open(cookie_file).expect("db Connection failed");
 
     let query =
         "SELECT * FROM moz_cookies WHERE (host = '.bing.com' OR host = 'www.bing.com') AND value != '' AND originAttributes = '' GROUP BY name;";
     let mut statement = connection.prepare(query).unwrap();
 
+    let mut cookies = Vec::new();
     while let Ok(State::Row) = statement.next() {
         let pair = retrieve_value(&mut statement)?;
 
-        if pair.starts_with("KievRPSSecAuth") {
-            return Ok(pair);
-        }
+        cookies.push(pair);
     }
 
-    Err(Box::new(io::Error::new(
-        ErrorKind::InvalidData,
-        "Could not find connection cookie",
-    )))
+    Ok(cookies)
 }
 
 fn retrieve_value(statement: &mut Statement) -> Result<std::string::String, sqlite::Error> {
     let name = statement.read::<String, _>("name")?;
     let value = statement.read::<String, _>("value")?;
-    Ok(format!("{name}={value}"))
+    let host = statement.read::<String, _>("host")?;
+    let path = statement.read::<String, _>("path")?;
+    let http_only = statement.read::<String, _>("isHttpOnly")?;
+    Ok(format!(
+        "{name}={value}; Domain={host}; Path={path}; {};",
+        if http_only == "1" { "HttpOnly" } else { "" }
+    ))
 }

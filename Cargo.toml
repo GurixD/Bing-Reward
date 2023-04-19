@@ -1,6 +1,6 @@
 [package]
 name = "bing-reward"
-version = "0.2.0"
+version = "0.4.0"
 edition = "2021"
 authors = ["Valentin Wyss"]
 description = "Creates a hidden browser using your browser cookies and makes random requests to bing.com to add point to your account"
