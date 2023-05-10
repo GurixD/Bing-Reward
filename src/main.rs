@@ -100,17 +100,16 @@ fn main() {
 }
 
 fn run_requests(firefox_cookies: String) -> Result<(), Box<dyn Error>> {
-    let edge_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.48".to_owned();
-    
-    let android_agent =
-        "Mozilla/5.0 (Android 11; Mobile; rv:83.0) Gecko/83.0 Firefox/83.0".to_owned();
+    let edge_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.48";
+
+    let android_agent = "Mozilla/5.0 (Linux; U; Android 4.0.3; ko-kr; LG-L160L Build/IML74K) AppleWebkit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30";
 
     let cookies = get_firefox_cookies(firefox_cookies)?;
 
     // println!("cookies: {cookies}");
 
-    search_with_user_agent(&cookies, &edge_agent, 40)?; // 40
-    search_with_user_agent(&cookies, &android_agent, 25)?; // 25
+    search_with_user_agent(&cookies, edge_agent, 40)?; // 40
+    search_with_user_agent(&cookies, android_agent, 25)?; // 25
 
     Ok(())
 }
@@ -142,10 +141,17 @@ fn search_with_user_agent(
         random_url.push_str(&Alphanumeric.sample_string(&mut rand::thread_rng(), 16));
         // println!("{random_url}");
 
-        let get = client.get(random_url);
-        let _response = get.send()?;
+        let request = client.get(random_url).build()?;
 
-        // println!("{}", _response.text()?)
+        // println!("{:#?}", request);
+
+        let _response = client.execute(request)?;
+
+        // let status = &_response.status();
+        // let headers = _response.headers();
+        // println!("{}", _response.text()?);
+        // println!("{}", status);
+        // println!("{:#?}", headers);
     }
 
     Ok(())
